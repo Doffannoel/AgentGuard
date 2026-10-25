@@ -1,4 +1,5 @@
 # AgentGuard
+<img width="1053" height="572" alt="Screenshot 2026-10-25 001434" src="https://github.com/user-attachments/assets/c4c95116-6577-423f-9e62-ecca13af063e" />
 
 AgentGuard adalah **AI security gateway** untuk membantu tim mengendalikan bagaimana aplikasi dan AI agent berinteraksi dengan model bahasa serta tools yang dapat menimbulkan dampak nyata. AgentGuard memeriksa request, menerapkan policy, dan mencatat keputusan agar aktivitas AI dapat ditinjau oleh operator.
 
