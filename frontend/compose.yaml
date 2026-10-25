@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: agentguard
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agentguard}
+      POSTGRES_DB: agentguard
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentguard"]
+      interval: 3s
+      retries: 20
+  migrate:
+    build: ./backend
+    environment: &backend-env
+      AG_DATABASE_URL: postgresql+psycopg://agentguard:${POSTGRES_PASSWORD:-agentguard}@postgres:5432/agentguard
+      AG_CONSOLE_ORIGINS: '["http://localhost:3000"]'
+      AG_OPENAI_API_KEY: ${AG_OPENAI_API_KEY:-}
+      AG_OLLAMA_BASE_URL: http://host.docker.internal:11434/v1
+      AG_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres: {condition: service_healthy}
+  api:
+    build: ./backend
+    environment: *backend-env
+    ports: ["127.0.0.1:8000:8000"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+  worker:
+    build: ./backend
+    environment: *backend-env
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.120.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes: ["./backend/otel.yaml:/etc/otelcol/config.yaml:ro"]
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    ports: ["127.0.0.1:9090:9090"]
+    volumes: ["./backend/prometheus.yaml:/etc/prometheus/prometheus.yml:ro"]
+  jaeger:
+    image: jaegertracing/all-in-one:1.66.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports: ["127.0.0.1:16686:16686"]
+volumes:
+  postgres-data:

@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Generated dependencies and disposable local test data"
+paths = ['''(^|/)(node_modules|\.next[^/]*|\.venv|\.test-postgres|test-results|playwright-report)/''', '''backend/requirements.lock''']

@@ -1,0 +1,1 @@
+C:/Program Files/PostgreSQL/18/bin/postgres.exe "-D" "C:/Project/AI Guard/backend/.test-postgres" "-p" "55432" "-h" "127.0.0.1"

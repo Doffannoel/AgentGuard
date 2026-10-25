@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: agentguard
+    static_configs:
+      - targets: [api:8000]
+  - job_name: agentguard-worker
+    static_configs:
+      - targets: [worker:8002]

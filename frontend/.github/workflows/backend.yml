@@ -1,0 +1,52 @@
+name: Backend and console
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: agentguard
+          POSTGRES_PASSWORD: test-password
+          POSTGRES_DB: agentguard_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd 'pg_isready -U agentguard'
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      AG_DATABASE_URL: postgresql+psycopg://agentguard:test-password@localhost:5432/agentguard_test
+      AG_TEST_DATABASE_URL: postgresql+psycopg://agentguard:test-password@localhost:5432/agentguard_test
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24', cache: npm}
+      - run: python -m venv backend/.venv
+      - run: backend/.venv/bin/pip install -r backend/requirements.lock
+      - run: .venv/bin/ruff check app tests migrations && .venv/bin/ruff format --check app tests migrations
+        working-directory: backend
+      - run: .venv/bin/pyright
+        working-directory: backend
+      - run: .venv/bin/alembic upgrade head && .venv/bin/alembic check && .venv/bin/pytest -q
+        working-directory: backend
+      - run: npm ci && npm run typecheck && npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:backend
+      - run: npm run test:e2e
+      - name: Secret scan
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.24.2 dir /repo --redact --no-banner
+      - run: docker build -t agentguard-ci ./backend
+      - name: Container health integration
+        run: |
+          docker run -d --name agentguard-check --network host -e AG_DATABASE_URL agentguard-ci
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health; then exit 0; fi
+            sleep 1
+          done
+          docker logs agentguard-check
+          exit 1
